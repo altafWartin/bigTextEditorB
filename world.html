@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Option 1: Include in HTML -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css"
+  />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+    crossorigin="anonymous"
+  />
+  <title>RTE</title>
+  <style>
+    @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css");
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+.divBody {
+    margin: 10px;
+    height: 388px;
+    width: 788px;
+    border: 2px solid rgb(238, 237, 237);
+    border-radius: 10px;
+}
+.editor {
+    height: 80%;
+    width: 100%;
+    outline: none;
+    margin: 10px;
+}
+#toolbar {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid rgb(238, 237, 237);
+}
+.dropdown,
+button,
+svg {
+    color: rgb(77, 74, 74);
+    border: none;
+    font-size: 22px;
+    background-color: white;
+    padding: 1px;
+    cursor: pointer;
+}
+.hidden-input {
+    display: none;
+}
+.upload-button {
+    cursor: pointer;
+}
+.resizable {
+    cursor: nwse-resize;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: all 0.3s ease-in-out;
+}
+.sapreter {
+    font-size: large;
+    color: rgb(115, 107, 107);
+    margin: 5px;
+}
+button.selected {
+    color: #1e40af;
+    background-color: #eff6ff;
+    border-radius: 10px;
+}
+#doneButton {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 18px;
+    padding: 8px 16px;
+    background-color: #1e40af;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+  </style>
+</head>
+<body>
+<div class="divBody">
+  <div id="toolbar" class="d-flex justify-content-between">
+    <div>
+      <button onclick="execCmd('bold')" id="boldButton">
+        <i class="bi bi-type-bold text-xl-start"></i>
+      </button>
+      <button onclick="execCmd('italic')" id="italicButton">
+        <i class="bi bi-type-italic text-xl-start"></i>
+      </button>
+      <button onclick="execCmd('underline')" id="underlineButton">
+        <i class="bi bi-type-underline text-xl-start"></i>
+      </button>
+      <button onclick="execCmd('strikethrough')" id="strikethroughButton">
+        <i class="bi bi-code"></i>
+      </button>
+      <span class="sapreter text-xl-start">|</span>
+      <button onclick="execCmd('justifyLeft')" id="justifyLeftButton">
+        <i class="bi bi-text-left text-xl-start"></i>
+      </button>
+      <button onclick="execCmd('justifyCenter')" id="justifyCenterButton">
+        <i class="bi bi-justify text-xl-start"></i>
+      </button>
+      <button onclick="execCmd('justifyRight')" id="justifyRightButton">
+        <i class="bi bi-text-right text-xl-start"></i>
+      </button>
+      <span class="sapreter text-xl-start">|</span>
+      <button
+        onclick="execCmd('createLink', prompt('Enter a URL:', 'http://'))"
+      >
+        <i class="bi bi-link-45deg text-xl-start"></i>
+      </button>
+      <span class="sapreter text-xl-start">|</span>
+      <input
+        type="file"
+        id="image-input"
+        accept="image/*"
+        class="hidden-input"
+        onchange="uploadMedia('image-input')"
+      />
+      <button
+        class="upload-button"
+        onclick="document.getElementById('image-input').click()"
+      >
+        <i class="bi bi-card-image text-xl-start"></i>
+      </button>
+      <input
+        type="file"
+        id="video-input"
+        accept="video/*"
+        class="hidden-input"
+        onchange="uploadMedia('video-input')"
+      />
+      <button
+        class="upload-button"
+        onclick="document.getElementById('video-input').click()"
+      >
+        <i class="bi bi-film text-xl-start"></i>
+      </button>
+      <span class="sapreter text-xl-start">|</span>
+      <select
+        id="font-size"
+        onchange="execCmd('fontSize', this.value)"
+        class="border-none dropdown"
+      >
+        <option value="3">Paragraph</option>
+        <option value="5">Heading 1</option>
+        <option value="6">Heading 2</option>
+        <option value="7">Heading 3</option>
+        <option value="insertUnorderedList">
+          <button onclick="execCmd('insertUnorderedList')">
+            Bulleted List
+          </button>
+        </option>
+        <option value="insertOrderedList">
+          <button onclick="execCmd('insertOrderedList')">
+            Numbered List
+          </button>
+        </option>
+      </select>
+    </div>
+    <div>
+      <button onclick="undo()">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </button>
+      <button onclick="redo()">
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+    </div>
+  </div>
+  <div
+    id="editor"
+    class="container-fluid editor"
+    contenteditable="true"
+    oninput="handleInput()"
+    ondrop="handleDrop(event)"
+    ondragover="allowDrop(event)"
+  >
+  </div>
+</div>
+<script>
+  let undoStack = [];
+  let redoStack = [];
+  function execCmd(command, value = null) {
+    const clickedButton = document.getElementById(command + "Button");
+    const justifyButtons = document.querySelectorAll('[id^="justify"]');
+    justifyButtons.forEach((button) => {
+      if (button !== clickedButton) {
+        button.classList.remove("selected");
+      }
+    });
+    if (clickedButton) {
+      clickedButton.classList.toggle("selected");
+    }
+    document.execCommand(command, false, value);
+  }
+  function handleInput() {
+        let editorContent = document.getElementById("editor").innerHTML;
+        undoStack.push(editorContent);
+        redoStack = [];
+        console.log(editorContent);
+        localStorage.setItem("editorContent", editorContent);
+      }
+  function undo() {
+    if (undoStack.length > 1) {
+      redoStack.push(undoStack.pop());
+      document.getElementById("editor").innerHTML =
+        undoStack[undoStack.length - 1];
+    }
+  }
+  function redo() {
+    if (redoStack.length > 0) {
+      undoStack.push(redoStack.pop());
+      document.getElementById("editor").innerHTML =
+        undoStack[undoStack.length - 1];
+    }
+  }
+  function unlink() {
+    execCmd("unlink");
+  }
+  function uploadMedia(inputId) {
+    const input = document.getElementById(inputId);
+    const file = input.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const mediaElement = document.createElement(
+          inputId.includes("image") ? "img" : "video"
+        );
+        mediaElement.src = e.target.result;
+        mediaElement.classList.add("resizable");
+        mediaElement.setAttribute("draggable", "true");
+        mediaElement.setAttribute("ondragstart", "dragStart(event)");
+        mediaElement.addEventListener("mouseover", startResizing);
+        mediaElement.addEventListener("mouseleave", stopResizing);
+        document.getElementById("editor").appendChild(mediaElement);
+        input.value = "";
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+  function dragStart(event) {
+    event.dataTransfer.setData("text", event.target.id);
+  }
+  function startResizing(event) {
+    const resizableElement = event.target;
+    resizableElement.style.cursor = "nwse-resize";
+    resizableElement.addEventListener("mousedown", handleMouseDown);
+    function handleMouseDown(e) {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startWidth = resizableElement.offsetWidth;
+      const startHeight = resizableElement.offsetHeight;
+      const aspectRatio = startWidth / startHeight;
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      function handleMouseMove(moveEvent) {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          resizableElement.style.width = startWidth + deltaX + "px";
+          resizableElement.style.height =
+            (startWidth + deltaX) / aspectRatio + "px";
+        } else {
+          resizableElement.style.height = startHeight + deltaY + "px";
+          resizableElement.style.width =
+            (startHeight + deltaY) * aspectRatio + "px";
+        }
+      }
+      function handleMouseUp() {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      }
+    }
+  }
+  function stopResizing(event) {
+    const resizableElement = event.target;
+    resizableElement.style.cursor = "default";
+    resizableElement.removeEventListener("mousedown", handleMouseDown);
+  }
+  function allowDrop(event) {
+    event.preventDefault();
+  }
+  function handleDrop(event) {
+    event.preventDefault();
+    const input = event.dataTransfer.getData("text");
+    const draggableElement = document.getElementById(input);
+    const cursorX = event.clientX - draggableElement.width / 2;
+    const cursorY = event.clientY - draggableElement.height / 2;
+    draggableElement.style.left = cursorX + "px";
+    draggableElement.style.top = cursorY + "px";
+    document.getElementById("editor").appendChild(draggableElement);
+  }
+  // Save content to the parent window
+  function saveText() {
+    const editorContent = document.getElementById("editor").innerHTML;
+    window.parent.helloText = editorContent; // Store the HTML content in a variable accessible from the parent window
+    console.log("Content saved:", editorContent);
+  }
+parent.iFrameWin = window;
+</script>
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+  crossorigin="anonymous"
+></script>
+</body>
+</html>
